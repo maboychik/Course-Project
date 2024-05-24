@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Board</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet"/>
+</head>
+<body>
+<header>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">TaskFlow</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="#">Home</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="projectsDropdownMenuLink" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            Projects
+                        </a>
+                        <div class="dropdown-menu" aria-labelledby="projectsDropdownMenuLink">
+                            <div class="projects-container">
+                                {% for project in projects %}
+                                <div class="project-item">
+                                    <a href="{{ url_for('project_tasks', project_id=project.id) }}">{{ project.name
+                                        }}</a>
+                                    <div class="project-details">
+                                        <p>{{ project.description }}</p>
+                                        <p>Team: {{ project.team.name }}</p>
+                                        {% if current_user.role.name in ['Manager'] %}
+                                        <button class="btn btn-danger delete-project-button"
+                                                data-project-id="{{ project.id }}">Delete Project
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                {% if current_user.role.name in ['Manager'] %}
+                                <div class="add-container">
+                                    <button class="add-button" data-bs-toggle="modal"
+                                            data-bs-target="#createProjectModal">Add Project
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="teamsDropdownMenuLink" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            Teams
+                        </a>
+                        <div class="dropdown-menu" aria-labelledby="teamsDropdownMenuLink">
+                            <div class="teams-container">
+                                {% for department in departments %}
+                                <div class="department-item">
+                                    <a href="#">{{ department.name }}</a>
+                                    <div class="teams-list">
+                                        {% for team in department.teams %}
+                                        <div class="team-item">
+                                            <a href="#">{{ team.name }}</a>
+                                            <div class="members-list">
+                                                <p>Работники:</p>
+                                                <ul>
+                                                    {% for member in team.employees %}
+                                                    <li>{{ member.first_name }} {{ member.last_name[0] }}.</li>
+                                                    {% endfor %}
+                                                </ul>
+                                                {% if department.show_add_team_button %}
+                                                <button class="btn btn-warning edit-team-button"
+                                                        data-team-id="{{ team.id }}">Edit Team
+                                                </button>
+                                                <button class="btn btn-danger delete-team-button"
+                                                        data-team-id="{{ team.id }}">Delete Team
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        {% if department.show_add_team_button %}
+                                        <div class="add-container">
+                                            <button class="add-button" data-bs-toggle="modal"
+                                                    data-bs-target="#createTeamModal">Add Team
+                                            </button>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                {% if current_user.role.name == 'Executive' %}
+                                <div class="add-container">
+                                    <button class="add-button" data-bs-toggle="modal"
+                                            data-bs-target="#createDepartmentModal">Add Department
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </li>
+                    <li class="nav-item">
+                        {% if current_user.role.name == 'TeamLead' %}
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#teamTasksModal">{{
+                            current_user.employee.team.name }}</a>
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Окно для создания департамента -->
+    <div class="modal fade" id="createDepartmentModal" tabindex="-1" aria-labelledby="createDepartmentModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createDepartmentModalLabel">Create New Department</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="/create-department" method="post">
+                        <div class="mb-3">
+                            <label for="departmentName" class="form-label">Department Name:</label>
+                            <input type="text" class="form-control" id="departmentName" name="departmentName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="manager" class="form-label">Assign Manager:</label>
+                            <select class="form-control" id="manager" name="manager">
+                                {% for manager in managers %}
+                                <option value="{{ manager.id }}">{{ manager.first_name }} {{ manager.last_name[0] }}.
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Department</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Окно для создания команды -->
+    <div class="modal fade" id="createTeamModal" tabindex="-1" aria-labelledby="createTeamModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createTeamModalLabel">Create New Team</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="/create-team" method="post">
+                        <input type="hidden" id="department" name="department"
+                               value="{{ current_user.employee.department_id }}">
+                        <div class="mb-3">
+                            <label for="teamName" class="form-label">Team Name:</label>
+                            <input type="text" class="form-control" id="teamName" name="teamName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="teamLead" class="form-label">Select Team Lead:</label>
+                            <select class="form-control" id="teamLead" name="teamLead" required>
+                                {% for lead in potential_leads %}
+                                <option value="{{ lead.id }}">{{ lead.first_name }} {{ lead.last_name[0] }}.</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="teamMembers" class="form-label">Add Members:</label>
+                            <select class="form-control" id="teamMembers" name="teamMembers[]" multiple="multiple"
+                                    required>
+                                {% for member in potential_members %}
+                                <option value="{{ member.id }}">{{ member.first_name }} {{ member.last_name[0] }}.
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Team</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Окно для создания проекта -->
+    <div class="modal fade" id="createProjectModal" tabindex="-1" aria-labelledby="createProjectModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createProjectModalLabel">Create New Project</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="/create-project" method="post">
+                        <div class="mb-3">
+                            <label for="projectName" class="form-label">Project Name:</label>
+                            <input type="text" class="form-control" id="projectName" name="projectName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="projectDescription" class="form-label">Project Description:</label>
+                            <textarea class="form-control" id="projectDescription" name="projectDescription"
+                                      required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="projectTeam" class="form-label">Assign Team:</label>
+                            <select class="form-control" id="projectTeam" name="projectTeam" required>
+                                {% for team in teams %}
+                                {% if team.department_id == current_user.employee.department_id %}
+                                <option value="{{ team.id }}">{{ team.name }}</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Project</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Окно для подтверждения удаления проекта -->
+    <div class="modal fade" id="confirmDeleteProjectModal" tabindex="-1"
+         aria-labelledby="confirmDeleteProjectModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmDeleteProjectModalLabel">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this project?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteProjectButton">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Окно для изменения команды -->
+    <div class="modal fade" id="editTeamModal" tabindex="-1" aria-labelledby="editTeamModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editTeamModalLabel">Редактировать команду</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editTeamForm">
+                        <div class="mb-3">
+                            <label for="editTeamName" class="form-label">Название команды</label>
+                            <input type="text" class="form-control" id="editTeamName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTeamMembers" class="form-label">Участники команды</label>
+                            <select id="editTeamMembers" class="form-select" multiple="multiple" required>
+                                {% for employee in employees %}
+                                <option value="{{ employee.id }}">{{ employee.first_name }} {{ employee.last_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Модальное окно для выбора сотрудников и задач -->
+    <div class="modal fade" id="teamTasksModal" tabindex="-1" aria-labelledby="teamTasksModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="teamTasksModalLabel">Выбор сотрудников и задач</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="selectForm">
+                        <div class="form-group">
+                            <label for="employeesSelect">Сотрудники:</label>
+                            <select id="employeesSelect" name="employees" multiple="multiple" class="form-control"
+                                    style="width: 100%;">
+                                {% for employee in team_members %}
+                                <option value="{{ employee.id }}">{{ employee.first_name }} {{ employee.last_name[0]
+                                    }}.
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="tasksSelect">Задачи:</label>
+                            <select id="tasksSelect" name="tasks" multiple="multiple" class="form-control"
+                                    style="width: 100%;">
+                                {% for task in unassigned_tasks %}
+                                {% if task.project_id == current_project.id %}
+                                <option value="{{ task.id }}">{{ task.name }}</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </form>
+                    <div id="error-message" style="display:none; color:red;">
+                        Количество сотрудников и задач должно совпадать.
+                    </div>
+                    <div id="assignmentTableContainer" style="display:none;">
+                        <table id="assignmentTable" class="table">
+
+                        </table>
+                        <button id="assignTasksButton" class="btn btn-primary">Assign tasks</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-menu">
+        {% if current_user.is_authenticated %}
+        {{ current_user.first_name }} {{ current_user.last_name[0] }}.
+        <button onclick="location.href='/logout';">Logout</button>
+        {% else %}
+        <button onclick="location.href='/login';">Login</button>
+        {% endif %}
+    </div>
+</header>
+
+
+<div class="path">
+    Projects/{% if current_project %}{{ current_project.name }}{% else %}No project selected{% endif %}
+</div>
+
+<div class="name">
+    <h1>Kanban-board</h1>
+</div>
+
+<!-- Flash сообщения -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-overlay show"></div>
+<div class="flashes">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">
+        <div class="flash-text">{{ message }}</div>
+        <button class="flash-button" onclick="closeFlashMessage(this);">OK</button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+{% if current_project %}
+<div class="top-bar">
+    <div class="search-bar">
+        <form action="{{ url_for('project_tasks', project_id=current_project.id) }}" method="get" class="search-form">
+            <input type="text" name="query" placeholder="Search..." value="{{ search_query }}" class="search-input">
+            <select name="priority" class="form-select">
+                <option value="">All Priorities</option>
+                <option value="low" {% if priority_filter=='low' %}selected{% endif %}>Low</option>
+                <option value="medium" {% if priority_filter=='medium' %}selected{% endif %}>Medium</option>
+                <option value="high" {% if priority_filter=='high' %}selected{% endif %}>High</option>
+            </select>
+            <select name="assignee" class="form-select" style="width: auto; display: inline-block;">
+                <option value="">All Assignees</option>
+                {% for employee in employees %}
+                <option value="{{ employee.id }}" {% if assignee_filter|int== employee.id %}selected{% endif %}>
+                    {{ employee.first_name }} {{ employee.last_name }}
+                </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="search-button">Search</button>
+            {% if search_query or priority_filter or assignee_filter %}
+            <a href="{{ url_for('project_tasks', project_id=current_project.id) }}" class="reset-button"></a>
+            {% endif %}
+        </form>
+    </div>
+    <div class="add-task-button">
+        <div class="add-container">
+            {% if current_user.role.name != 'Employee' %}
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTaskModal">Add Task</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+<div class="board">
+    <div class="column" id="to_do" data-status="to_do">
+        <h2>To Do</h2>
+        <div class="tasks-container">
+            {% for task in tasks['to_do'] if task.project_id == current_project.id %}
+            <div class="task" draggable="true" id="task-{{ task.id }}"
+                 data-creator="{{ task.creator.first_name }} {{ task.creator.last_name[0] }}."
+                 onclick="loadTaskData({{ task.id }})">
+                <div class="task-header">
+                    <span class="task-name">{{ task.name }}</span>
+                    <span class="task-priority {{ task.priority }}"></span>
+                    <span class="task-employee">{% if task.employee %}{{ task.employee.first_name }} {{ task.employee.last_name[0] }}.{% endif %}</span>
+                </div>
+                <div class="task-body">
+                    <span class="task-project">{{ task.project.name }}</span>
+                </div>
+                <div class="task-footer">
+                    <div class="deadline {{ task.deadline_class }}">
+                        Deadline: {{ task.deadline.strftime('%d.%m.%Y') if task.deadline else 'No deadline' }}
+                    </div>
+                </div>
+            </div>
+
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="column" id="doing" data-status="doing">
+        <h2>Doing</h2>
+        <div class="tasks-container">
+            {% for task in tasks['doing'] if task.project_id == current_project.id %}
+            <div class="task" draggable="true" id="task-{{ task.id }}"
+                 data-creator="{{ task.creator.first_name }} {{ task.creator.last_name[0] }}."
+                 onclick="loadTaskData({{ task.id }})">
+                <div class="task-header">
+                    <span class="task-name">{{ task.name }}</span>
+                    <span class="task-priority {{ task.priority }}"></span>
+                    <span class="task-employee">{% if task.employee %}{{ task.employee.first_name }} {{ task.employee.last_name[0] }}.{% endif %}</span>
+                </div>
+                <div class="task-body">
+                    <span class="task-project">{{ task.project.name }}</span>
+                </div>
+                <div class="task-footer">
+                    <div class="deadline {{ task.deadline_class }}">
+                        Deadline: {{ task.deadline.strftime('%d.%m.%Y') if task.deadline else 'No deadline' }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="column" id="done" data-status="done">
+        <h2>Done</h2>
+        <div class="tasks-container">
+            {% for task in tasks['done'] if task.project_id == current_project.id %}
+            <div class="task" draggable="true" id="task-{{ task.id }}"
+                 data-creator="{{ task.creator.first_name }} {{ task.creator.last_name[0] }}."
+                 onclick="loadTaskData({{ task.id }})">
+                <div class="task-header">
+                    <span class="task-name">{{ task.name }}</span>
+                    <span class="task-priority {{ task.priority }}"></span>
+                    <span class="task-employee">{% if task.employee %}{{ task.employee.first_name }} {{ task.employee.last_name[0] }}.{% endif %}</span>
+                </div>
+                <div class="task-body">
+                    <span class="task-project">{{ task.project.name }}</span>
+                </div>
+                <div class="task-footer">
+                    <div class="deadline {{ task.deadline_class }}">
+                        Deadline: {{ task.deadline.strftime('%d.%m.%Y') if task.deadline else 'No deadline' }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+
+    {% if current_user.role.name in ['Manager', 'Executive', 'TeamLead'] %}
+    <div class="trash-bin" id="trash-bin">
+        <h2>Trash</h2>
+        <img src="{{ url_for('static', filename='img/trash-icon.png') }}" alt="Trash Icon" class="trash-icon">
+    </div>
+    {% endif %}
+</div>
+
+<!-- Окно с деталями задачи -->
+<div class="modal fade" id="taskModal" tabindex="-1" aria-labelledby="taskModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="taskModalLabel">Task Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Description:</strong> <span id="taskDescription"></span></p>
+                <p><strong>Created by:</strong> <span id="taskCreator"></span></p>
+                <p><strong>Assigned to:</strong> <span id="taskAssignee"></span></p>
+                <p><strong>Deadline:</strong> <span id="taskDeadline"></span></p>
+                <p><strong>Priority:</strong> <span id="taskPriority"></span></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                {% if current_user_id == task_creator_id %}
+                <button type="button" class="btn btn-primary" id="editTaskButton" onclick="openEditTaskModal()">Edit
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Окно для редактирования задачи -->
+<div class="modal fade" id="editTaskModal" tabindex="-1" aria-labelledby="editTaskModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editTaskModalLabel">Edit Task</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editTaskForm">
+                    <div class="mb-3">
+                        <label for="editTaskName" class="form-label">Task Name</label>
+                        <input type="text" class="form-control" id="editTaskName" name="taskName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="editDescription" name="description" rows="3"
+                        ></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <input type="checkbox" id="unassigned" name="unassigned">
+                        <label for="unassigned">Do not assign to anyone</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="assignee" class="form-label">Assign to</label>
+                        <select class="form-control" id="assignee" name="assignee">
+                            <option value="">Select Employee</option>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}">{{ employee.first_name }} {{ employee.last_name[0] }}.
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPriority" class="form-label">Priority</label>
+                        <select class="form-control" id="editPriority" name="priority">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDeadline" class="form-label">Deadline</label>
+                        <input type="date" class="form-control" id="editDeadline" name="deadline">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Save changes</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для добавления задач -->
+<div class="modal fade" id="addTaskModal" tabindex="-1" aria-labelledby="addTaskModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('add_task', project_id=current_project.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addTaskModalLabel">Add New Task</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="taskName" class="form-label">Task Name</label>
+                        <input type="text" class="form-control" id="taskName" name="taskName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <input type="checkbox" id="unassigned" name="unassigned">
+                        <label for="unassigned">Do not assign to anyone</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="assignee" class="form-label">Assign to</label>
+                        <select class="form-control" id="assignee" name="assignee">
+                            <option value="">Select Employee</option>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}">{{ employee.first_name }} {{ employee.last_name[0] }}.
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="priority" class="form-label">Priority</label>
+                        <select class="form-control" id="priority" name="priority" required>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deadline" class="form-label">Deadline</label>
+                        <input type="date" class="form-control" id="deadline" name="deadline">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Create Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+{% else %}
+<p>Please select a project to view its tasks.</p>
+{% endif %}
+
+<!-- Модальное окно для подтверждения удаления задачи -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmDeleteModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this task?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteButton">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Окно для подтверждения удаления команды -->
+<div class="modal fade" id="confirmDeleteTeamModal" tabindex="-1" aria-labelledby="confirmDeleteTeamModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmDeleteTeamModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this team?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteTeamButton">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+<script>
+    function closeFlashMessage(button) {
+        button.parentElement.classList.add('flash-hidden');
+        document.querySelector('.flash-overlay').classList.remove('show');
+    }
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var tasks = document.querySelectorAll('.task');
+        tasks.forEach(function(task) {
+            task.addEventListener('dragstart', function(ev) {
+                var taskEmployee = task.querySelector('.task-employee').textContent.trim();
+                var currentUser = "{{ current_user.first_name }} {{ current_user.last_name[0] }}.";
+                var taskCreator = task.getAttribute('data-creator');
+
+                if (taskEmployee !== currentUser && taskCreator !== currentUser) {
+                    ev.preventDefault();
+                } else {
+                    ev.dataTransfer.setData("text", ev.target.id);
+                }
+            });
+        });
+
+        var columns = document.querySelectorAll('.column');
+        columns.forEach(function(column) {
+            column.addEventListener('dragover', function(ev) {
+                ev.preventDefault();
+            });
+
+            column.addEventListener('drop', function(ev) {
+                ev.preventDefault();
+                var data = ev.dataTransfer.getData("text");
+                var elem = document.getElementById(data);
+                var taskEmployee = elem.querySelector('.task-employee').textContent.trim();
+                var currentUser = "{{ current_user.first_name }} {{ current_user.last_name[0] }}.";
+                var taskCreator = elem.getAttribute('data-creator');
+
+                if (taskEmployee === currentUser || taskCreator === currentUser) {
+                    this.querySelector('.tasks-container').appendChild(elem);
+                    var new_status = this.getAttribute('data-status');
+                    fetch(`/update-task/${data.split('-')[1]}/${new_status}`, {method: 'POST'})
+                        .then(response => response.json())
+                        .then(data => console.log(data));
+                }
+            });
+        });
+
+        // Обработка перетаскивания в корзину
+        const trashBin = document.getElementById('trash-bin');
+        trashBin.addEventListener('dragover', function(ev) {
+            ev.preventDefault();
+        });
+        trashBin.addEventListener('drop', function(ev) {
+            ev.preventDefault();
+            var data = ev.dataTransfer.getData("text");
+            var elem = document.getElementById(data);
+            var taskCreator = elem.getAttribute('data-creator');
+            var currentUser = "{{ current_user.first_name }} {{ current_user.last_name[0] }}.";
+
+            if (currentUser === taskCreator) {
+                currentTaskId = data.split('-')[1];
+                const deleteModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+                deleteModal.show();
+
+                // Перемещаем задачу в корзину до подтверждения удаления
+                trashBin.appendChild(document.getElementById(data));
+            }
+        });
+
+        document.getElementById('confirmDeleteButton').addEventListener('click', function() {
+            fetch(`/delete-task/${currentTaskId}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById(`task-${currentTaskId}`).remove();
+                        const deleteModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal'));
+                        deleteModal.hide();
+                    } else {
+                        alert('Error deleting task.');
+                    }
+                });
+        });
+    });
+</script>
+
+
+<script>
+    document.getElementById('teamMembers').addEventListener('change', function() {
+        let selectedOptions = Array.from(this.selectedOptions);
+        let teamLeadCount = selectedOptions.filter(option => option.text.includes('TeamLead')).length;
+        if (teamLeadCount > 1) {
+            alert('You can only select one Team Lead.');
+            // Возвращаем предыдущее правильное состояние выбора или другие действия по корректировке
+        }
+    });
+
+    $(document).ready(function() {
+        $('#teamMembers').select2({
+            dropdownParent: $('#createTeamModal'),  // Важно для корректного отображения внутри модального окна
+            width: '100%'  // Устанавливаем ширину Select2 равной ширине контейнера
+        });
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const departmentItems = document.querySelectorAll('.department-item');
+        departmentItems.forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                // Скрываем все списки команд и участников
+                document.querySelectorAll('.teams-list').forEach(list => list.style.display = 'none');
+                document.querySelectorAll('.members-list').forEach(list => list.style.display = 'none');
+                // Показываем текущий список команд
+                const teamsList = item.querySelector('.teams-list');
+                if (teamsList) {
+                    teamsList.style.display = 'block';
+                }
+            });
+
+            item.addEventListener('mouseleave', function() {
+                const teamsList = item.querySelector('.teams-list');
+                if (teamsList) {
+                    teamsList.style.display = 'none';
+                }
+            });
+        });
+
+        const teamItems = document.querySelectorAll('.team-item');
+        teamItems.forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                // Скрываем все списки участников
+                document.querySelectorAll('.members-list').forEach(list => list.style.display = 'none');
+                // Показываем текущий список участников
+                const membersList = item.querySelector('.members-list');
+                if (membersList) {
+                    membersList.style.display = 'block';
+                }
+            });
+
+            item.addEventListener('mouseleave', function() {
+                const membersList = item.querySelector('.members-list');
+                if (membersList) {
+                    membersList.style.display = 'none';
+                }
+            });
+        });
+    });
+</script>
+
+<script>
+    document.getElementById('selectForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    var employees = Array.from(document.getElementById('employeesSelect').selectedOptions).map(option => option.value);
+    var tasks = Array.from(document.getElementById('tasksSelect').selectedOptions).map(option => option.value);
+    if (employees.length !== tasks.length) {
+        document.getElementById('error-message').style.display = 'block';
+        document.getElementById('assignmentTableContainer').style.display = 'none';
+    } else {
+        document.getElementById('error-message').style.display = 'none';
+        var table = document.getElementById('assignmentTable');
+        table.innerHTML = '<tr><th>Сотрудник</th><th>Задача</th></tr>';
+        for (var i = 0; i < employees.length; i++) {
+            var row = table.insertRow();
+            row.insertCell(0).innerHTML = employees[i];
+            row.insertCell(1).innerHTML = tasks[i];
+        }
+        document.getElementById('assignmentTableContainer').style.display = 'block';
+    }
+});
+
+document.getElementById('assignTasksButton').addEventListener('click', function() {
+    var employees = Array.from(document.getElementById('employeesSelect').selectedOptions).map(option => option.value);
+    var tasks = Array.from(document.getElementById('tasksSelect').selectedOptions).map(option => option.value);
+    fetch('/assign_tasks', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({employees: employees, tasks: tasks})
+    }).then(response => response.json()).then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Ошибка при распределении задач.');
+        }
+    });
+});
+
+</script>
+
+<script>
+    $(document).ready(function() {
+        $('#employeesSelect').select2({
+            dropdownParent: $('#teamTasksModal'),  // Важно для корректного отображения внутри модального окна
+            width: '100%'  // Устанавливаем ширину Select2 равной ширине контейнера
+        });
+        $('#tasksSelect').select2({
+            dropdownParent: $('#teamTasksModal'),  // Важно для корректного отображения внутри модального окна
+            width: '100%'  // Устанавливаем ширину Select2 равной ширине контейнера
+        });
+
+        $('#selectForm').on('submit', function(event) {
+            event.preventDefault();
+            var employees = $('#employeesSelect').val();
+            var employeeNames = $('#employeesSelect option:selected').map(function() {
+                return $(this).text();
+            }).get();
+            var tasks = $('#tasksSelect').val();
+            var taskNames = $('#tasksSelect option:selected').map(function() {
+                return $(this).text();
+            }).get();
+            if (employees.length !== tasks.length) {
+                $('#error-message').show();
+                $('#assignmentTableContainer').hide();
+            } else {
+                $('#error-message').hide();
+                var table = $('#assignmentTable');
+                table.empty();
+
+                // Создание заголовка таблицы
+                var headerRow = '<tr><th>Сотрудник</th>';
+                taskNames.forEach(function(taskName) {
+                    headerRow += '<th>' + taskName + '</th>';
+                });
+                headerRow += '</tr>';
+                table.append(headerRow);
+
+                // Создание строк таблицы
+                employeeNames.forEach(function(employeeName, index) {
+                    var row = '<tr><td>' + employeeName + '</td>';
+                    tasks.forEach(function(task) {
+                        row += '<td><input type="number" class="form-control" min="0" max="10" value="0"></td>';
+                    });
+                    row += '</tr>';
+                    table.append(row);
+                });
+
+                $('#assignmentTableContainer').show();
+            }
+        });
+
+        $('#assignTasksButton').on('click', function() {
+            var employees = $('#employeesSelect').val();
+            var tasks = $('#tasksSelect').val();
+            var performanceLevels = [];
+
+            $('#assignmentTable tr').each(function(rowIndex) {
+                if (rowIndex > 0) { // пропускаем заголовок
+                    var row = $(this);
+                    var employeeId = employees[rowIndex - 1];
+                    var levels = [];
+                    row.find('input').each(function(cellIndex) {
+                        levels.push({
+                            task_id: tasks[cellIndex],
+                            level: $(this).val()
+                        });
+                    });
+                    performanceLevels.push({
+                        employee_id: employeeId,
+                        levels: levels
+                    });
+                }
+            });
+
+            fetch('/assign_tasks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({employees: employees, tasks: tasks, performance_levels: performanceLevels})
+            }).then(response => response.json()).then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Ошибка при распределении задач.');
+                }
+            });
+        });
+    });
+</script>
+
+<script>
+    function closeFlashMessage(button) {
+        button.parentElement.classList.add('flash-hidden');
+        document.querySelector('.flash-overlay').classList.remove('show');
+    }
+
+    function loadTaskData(taskId) {
+        currentTaskId = taskId;
+        fetch(`/task/${taskId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('taskModalLabel').innerText = data.name;
+                document.getElementById('taskDescription').innerText = data.description;
+                document.getElementById('taskCreator').innerText = data.creator;
+                document.getElementById('taskAssignee').innerText = data.assignee;
+                document.getElementById('taskDeadline').innerText = data.deadline ? data.deadline : 'No deadline';
+                document.getElementById('taskPriority').innerText = data.priority;
+
+                const editButton = document.getElementById('editTaskButton');
+                if (data.can_edit) {
+                    editButton.style.display = 'inline-block';
+                    editButton.onclick = () => openEditTaskModal(taskId);
+                } else {
+                    editButton.style.display = 'none';
+                }
+
+                new bootstrap.Modal(document.getElementById('taskModal')).show();
+            });
+    }
+
+    function openEditTaskModal(taskId) {
+        fetch(`/task/${taskId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('editTaskName').value = data.name;
+                document.getElementById('editDescription').value = data.description;
+                document.getElementById('editDeadline').value = data.deadline ? data.deadline.split('.').reverse().join('-') : '';
+                document.getElementById('editPriority').value = data.priority.toLowerCase();
+
+                new bootstrap.Modal(document.getElementById('editTaskModal')).show();
+            });
+    }
+
+
+    document.getElementById('editTaskForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const taskData = {};
+        formData.forEach((value, key) => taskData[key] = value);
+
+        fetch(`/task/${currentTaskId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(taskData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('An error occurred while saving the task.');
+            }
+        });
+    });
+document.getElementById('editTaskForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+    const taskData = {};
+    formData.forEach((value, key) => taskData[key] = value);
+
+    fetch(`/edit-task/${currentTaskId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(taskData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('An error occurred while saving the task.');
+        }
+    });
+});
+</script>
+
+<!-- Add the following script to handle the delete team action -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var deleteButtons = document.querySelectorAll('.delete-team-button');
+        var confirmDeleteTeamModal = new bootstrap.Modal(document.getElementById('confirmDeleteTeamModal'));
+        var confirmDeleteTeamButton = document.getElementById('confirmDeleteTeamButton');
+        var currentTeamId;
+
+        deleteButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                currentTeamId = this.getAttribute('data-team-id');
+                confirmDeleteTeamModal.show();
+            });
+        });
+
+        confirmDeleteTeamButton.addEventListener('click', function() {
+            fetch(`/delete-team/${currentTeamId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                confirmDeleteTeamModal.hide();
+                if (data.success) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    alert('Ошибка при удалении команды.');
+                }
+            });
+        });
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var editTeamModal = new bootstrap.Modal(document.getElementById('editTeamModal'));
+        var editTeamForm = document.getElementById('editTeamForm');
+        var editTeamName = document.getElementById('editTeamName');
+        var editTeamMembers = $('#editTeamMembers');
+        var currentTeamId;
+
+        // Инициализация Select2 для участников команды
+        editTeamMembers.select2({
+            dropdownParent: $('#editTeamModal'),
+            width: '100%'
+        });
+
+        // Привязка кнопок редактирования команды
+        document.querySelectorAll('.edit-team-button').forEach(function(button) {
+            button.addEventListener('click', function() {
+                currentTeamId = this.getAttribute('data-team-id');
+                fetch(`/team/${currentTeamId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        editTeamName.value = data.name;
+                        editTeamMembers.empty();
+
+                        // Добавляем текущих членов команды
+                        data.members.forEach(member => {
+                            var option = new Option(member.name, member.id, true, true);
+                            editTeamMembers.append(option);
+                        });
+
+                        // Добавляем свободных сотрудников
+                        data.available_employees.forEach(emp => {
+                            if (!data.members.some(m => m.id === emp.id)) {
+                                var option = new Option(emp.name, emp.id, false, false);
+                                editTeamMembers.append(option);
+                            }
+                        });
+                        editTeamMembers.trigger('change');
+                        editTeamModal.show();
+                    })
+                    .catch(error => {
+                        console.error('Error fetching team data:', error);
+                    });
+            });
+        });
+
+        // Обработка формы редактирования команды
+        editTeamForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            var members = editTeamMembers.val().map(Number);  // Преобразуем в числа
+            var data = {
+                name: editTeamName.value,
+                members: members
+            };
+
+            fetch(`/team/${currentTeamId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Ошибка при сохранении изменений.');
+                }
+            })
+            .catch(error => {
+                console.error('Error updating team data:', error);
+            });
+        });
+    });
+
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var deleteProjectModal = new bootstrap.Modal(document.getElementById('confirmDeleteProjectModal'));
+        var confirmDeleteProjectButton = document.getElementById('confirmDeleteProjectButton');
+        var currentProjectId;
+
+        document.querySelectorAll('.delete-project-button').forEach(function(button) {
+            button.addEventListener('click', function() {
+                currentProjectId = this.getAttribute('data-project-id');
+                deleteProjectModal.show();
+            });
+        });
+
+        confirmDeleteProjectButton.addEventListener('click', function() {
+            fetch(`/delete-project/${currentProjectId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    alert('Ошибка при удалении проекта.');
+                }
+            });
+        });
+    });
+</script>
+
+
+</body>
+</html>
